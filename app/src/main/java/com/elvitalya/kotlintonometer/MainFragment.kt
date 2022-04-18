@@ -2,27 +2,24 @@ package com.elvitalya.kotlintonometer
 
 import android.Manifest
 import android.annotation.SuppressLint
-import android.app.AlertDialog
-import android.app.Dialog
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.content.*
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.util.Log
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
@@ -50,8 +47,6 @@ class MainFragment : Fragment() {
 
     private lateinit var binding: FragmentMainBinding
 
-    private lateinit var tonometerRepository: TonometerRepository
-
     private val bluetoothAdapter by lazy {
         (requireActivity().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
     }
@@ -66,7 +61,6 @@ class MainFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        tonometerRepository = TonometerRepository().get()
         requestBtPermission()
         isBluetoothEnabled = bluetoothAdapter.isEnabled
 
@@ -91,12 +85,6 @@ class MainFragment : Fragment() {
     private fun doStartService() {
         val intent1 = Intent(requireActivity(), TonometerService::class.java)
         requireActivity().startService(intent1)
-        if (!mIsBleReceiver) {
-            val filter = IntentFilter(TonometerService.ACTION_BLE_SERVICE)
-            filter.addAction(TonometerService.ACTION_BLE_DATA_RECEIVED)
-            requireActivity().registerReceiver(bleServiceReceiver, filter)
-            mIsBleReceiver = true
-        }
     }
 
     private fun doBindBleReceivedService() {
@@ -111,58 +99,6 @@ class MainFragment : Fragment() {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
             tonometerService = (service as TonometerService.TonometerBinder).service
             tonometerService.connectDevice(mDevice)
-        }
-    }
-
-    private val bleServiceReceiver: BroadcastReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val action = intent.action
-            Log.d("AD", "the action received is $action")
-            if (action.equals(TonometerService.ACTION_BLE_DATA_RECEIVED, ignoreCase = true)) {
-                val systolic = intent.getStringExtra("Systolic")
-                val diastolic = intent.getStringExtra("Diastolic")
-                val pulse = intent.getStringExtra("Pulse")
-
-                logging("Systolic:    $systolic mmHg\nDiastolic:    $diastolic mmHg\nPulse:    $pulse mmHg")
-//                Log.d("AD", "Received the Blood Pressure data")
-//
-//
-//                //Create this custom Dialog box to display the values
-//                val alertDialog = AlertDialog.Builder(context).create()
-//                // Set Custom Title
-//                val title = TextView(context)
-//                // Title Properties
-//                title.text = "Blood Pressure Readings"
-//                title.setPadding(10, 10, 10, 10) // Set Position
-//                title.gravity = Gravity.CENTER
-//                title.setTextColor(Color.BLACK)
-//                title.textSize = 23f
-//                alertDialog.setCustomTitle(title)
-//
-//                // Set Message
-//                val msg = TextView(context)
-//                // Message Properties
-//                msg.text =
-//                    "Systolic:    $systolic mmHg\nDiastolic:    $diastolic mmHg\nPulse:    $pulse mmHg"
-//                msg.gravity = Gravity.CENTER_HORIZONTAL
-//                msg.setTextColor(Color.BLACK)
-//                msg.textSize = 20f
-//                alertDialog.setView(msg)
-//                alertDialog.setButton(
-//                    AlertDialog.BUTTON_NEUTRAL, "OK"
-//                ) { dialog, which -> // Perform Action on Button
-//                    dialog.dismiss()
-//                }
-//                Dialog(requireContext())
-//                alertDialog.show()
-//                val okBT = alertDialog.getButton(AlertDialog.BUTTON_NEUTRAL)
-//                val neutralBtnLP = okBT.layoutParams as LinearLayout.LayoutParams
-//                neutralBtnLP.gravity = Gravity.FILL_HORIZONTAL
-//                okBT.gravity = Gravity.CENTER
-//                // okBT.setPadding(50, 10, 10, 10);   // Set Position
-//                okBT.setTextColor(Color.BLUE)
-//                okBT.layoutParams = neutralBtnLP
-            }
         }
     }
 
@@ -286,3 +222,10 @@ class MainFragment : Fragment() {
     }
 
 }
+
+
+data class TonometerData(
+    val one: String,
+    val two: String,
+    val three: String,
+)

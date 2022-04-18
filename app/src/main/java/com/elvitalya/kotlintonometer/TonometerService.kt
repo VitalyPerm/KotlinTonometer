@@ -6,6 +6,9 @@ import android.bluetooth.*
 import android.content.Intent
 import android.os.*
 import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.util.*
 
 
@@ -27,8 +30,6 @@ class TonometerService : Service() {
     private var indicationDelay = Long.MIN_VALUE
     var operation: String = "data"
 
-    private lateinit var tonometerRepository: TonometerRepository
-
 
     override fun onBind(intent: Intent?): IBinder? {
         return TonometerBinder()
@@ -39,8 +40,6 @@ class TonometerService : Service() {
         if (tonometerService == null) {
             tonometerService = this
         }
-        tonometerRepository = TonometerRepository().get()
-
     }
 
     fun getInstance(): TonometerService? {
@@ -60,7 +59,6 @@ class TonometerService : Service() {
         if (device == null) {
             return false
         }
-        MainFragment.data.value = TonometerData("111", "222", "333")
 
         operation = "data"
         if (operation.equals("pair", ignoreCase = true)) {
@@ -347,127 +345,7 @@ class TonometerService : Service() {
     }
 
     fun parseCharcteristicValue(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic) {
-        if (ADGattUUID.AndCustomWeightScaleMeasurement.equals(characteristic.uuid)) {
-            Log.d("AD", "reading for WS received")
-            val flag = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
-            val flagString = Integer.toBinaryString(flag)
-            var offset = 0
-            var index = flagString.length
-            while (0 < index) {
-                val key = flagString.substring(index - 1, index)
-                if (index == flagString.length) {
-                    var convertValue = 0.0
-                    convertValue = if (key == "0") {
-                        0.1
-                    } else {
-                        0.1
-                    }
-                    // Unit
-                    offset += 1
-
-                    // Value
-                    val value = characteristic.getIntValue(
-                        BluetoothGattCharacteristic.FORMAT_UINT16,
-                        offset
-                    )
-                        .toDouble() * convertValue
-                    Log.d("SN", "Weight Value :$value")
-                    offset += 2
-                } else if (index == flagString.length - 1) {
-                    if (key == "1") {
-                        Log.d(
-                            "SN",
-                            "Y :" + String.format(
-                                "%04d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT16,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 2
-                        Log.d(
-                            "SN",
-                            "M :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "D :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "H :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "M :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "S :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                    } else {
-                        //Implies put the calendar date as the one
-                        val calendar = Calendar.getInstance(Locale.getDefault())
-                    }
-                } else if (index == flagString.length - 2) {
-                    if (key == "1") {
-                        Log.d(
-                            "SN",
-                            "ID :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                    }
-                } else if (index == flagString.length - 3) {
-                    if (key == "1") {
-                        // BMI and Height
-                    }
-                }
-                index--
-            }
-        } else if (ADGattUUID.BloodPressureMeasurement.equals(characteristic.uuid)) {
-            Log.d("AD", "reading for BP is received")
+        if (ADGattUUID.BloodPressureMeasurement.equals(characteristic.uuid)) {
             val flag = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
             val flagString = Integer.toBinaryString(flag)
             var systolic = ""
@@ -688,132 +566,13 @@ class TonometerService : Service() {
                 }
                 index--
             }
-            val intent = Intent()
-            intent.action = "jp.co.aandd.andblelink.ble.data_received"
-            intent.putExtra("Systolic", systolic_display)
-            intent.putExtra("Diastolic", diastolic_display)
-            intent.putExtra("Pulse", pulse_display)
-            sendBroadcast(intent)
-        } else if (ADGattUUID.WeightScaleMeasurement.equals(characteristic.uuid)) {
-            Log.d("Sim", "reading for WS standard is received")
-            val bundle = Bundle()
-            val flag = characteristic.getIntValue(BluetoothGattCharacteristic.FORMAT_UINT8, 0)
-            val flagString = Integer.toBinaryString(flag)
-            var offset = 0
-            var index = flagString.length
-            while (0 < index) {
-                val key = flagString.substring(index - 1, index)
-                if (index == flagString.length) {
-                    var convertValue = 0.0
-                    convertValue = if (key == "0") {
-                        0.005
-                    } else {
-                        0.01
-                    }
-                    // Unit
-                    offset += 1
-
-                    // Value
-                    val value = characteristic.getIntValue(
-                        BluetoothGattCharacteristic.FORMAT_UINT16,
-                        offset
-                    )
-                        .toDouble() * convertValue
-                    Log.d("SN", "Weight value :$value")
-                    offset += 2
-                } else if (index == flagString.length - 1) {
-                    if (key == "1") {
-                        Log.d(
-                            "SN",
-                            "Y :" + String.format(
-                                "%04d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT16,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 2
-                        Log.d(
-                            "SN",
-                            "M :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "D :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "H :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "M :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                        Log.d(
-                            "SN",
-                            "S :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                    } else {
-                        //Get the default date and time
-                        val calendar = Calendar.getInstance(Locale.getDefault())
-                    }
-                } else if (index == flagString.length - 2) {
-                    if (key == "1") {
-                        Log.d(
-                            "SN",
-                            "ID :" + String.format(
-                                "%02d",
-                                characteristic.getIntValue(
-                                    BluetoothGattCharacteristic.FORMAT_UINT8,
-                                    offset
-                                )
-                            )
-                        )
-                        offset += 1
-                    }
-                } else if (index == flagString.length - 3) {
-                    if (key == "1") {
-                        // BMI and Height
-                    }
-                }
-                index--
-            }
+            MainFragment.data.postValue(
+                TonometerData(
+                    systolic_display,
+                    diastolic_display,
+                    pulse_display
+                )
+            )
         }
     }
 
