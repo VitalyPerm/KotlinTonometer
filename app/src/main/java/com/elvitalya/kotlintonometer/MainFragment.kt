@@ -31,15 +31,11 @@ import java.util.*
 @SuppressLint("MissingPermission")
 class MainFragment : Fragment() {
 
-    private val T = "T"
-
     private var isPermissionGranted = false
 
     private var isBluetoothEnabled = false
 
     private var isScanning = false
-
-    private var mIsBleReceiver = false
 
     private lateinit var tonometerService: TonometerService
 
@@ -65,26 +61,12 @@ class MainFragment : Fragment() {
         isBluetoothEnabled = bluetoothAdapter.isEnabled
 
         data.observe(viewLifecycleOwner) {
-            logging("getting data from livedata ${it.one} ${it.two} ${it.three}")
+            logging("getting data from livedata ${it.high} ${it.low} ${it.pulse}")
         }
 
         if (isPermissionGranted && isBluetoothEnabled && !isScanning) {
             startBleScan()
         }
-
-
-        val BloodPressureService: UUID? = uuidFromShortString("1810")
-        val WeightScaleService: UUID? = uuidFromShortString("181d")
-
-    }
-
-    fun uuidFromShortString(uuid: String?): UUID? {
-        return UUID.fromString(String.format("0000%s-0000-1000-8000-00805f9b34fb", uuid))
-    }
-
-    private fun doStartService() {
-        val intent1 = Intent(requireActivity(), TonometerService::class.java)
-        requireActivity().startService(intent1)
     }
 
     private fun doBindBleReceivedService() {
@@ -129,7 +111,6 @@ class MainFragment : Fragment() {
                         mDevice = it
                         stopBleScan()
                         doBindBleReceivedService()
-                        doStartService()
                         Toast.makeText(requireContext(), "Device found", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -213,6 +194,11 @@ class MainFragment : Fragment() {
         return true
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        requireActivity().unbindService(mBleReceivedServiceConnection)
+    }
+
 
     companion object {
         val data = MutableLiveData<TonometerData>()
@@ -225,7 +211,7 @@ class MainFragment : Fragment() {
 
 
 data class TonometerData(
-    val one: String,
-    val two: String,
-    val three: String,
+    val high: String,
+    val low: String,
+    val pulse: String,
 )
