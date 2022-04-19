@@ -25,7 +25,7 @@ class TonometerService : Service() {
     }
 
     fun connectDevice(device: BluetoothDevice) {
-        bluetoothGatt = device.connectGatt(this, true, bluetoothGattCallback)
+        bluetoothGatt = device.connectGatt(this, false, bluetoothGattCallback)
     }
 
     fun setupDateTime(gatt: BluetoothGatt?): Boolean {
@@ -96,6 +96,7 @@ class TonometerService : Service() {
 
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             super.onConnectionStateChange(gatt, status, newState)
+
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 gatt.discoverServices()
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {

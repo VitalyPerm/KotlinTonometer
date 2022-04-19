@@ -2,20 +2,19 @@ package com.elvitalya.kotlintonometer
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
+import android.content.*
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.os.ParcelUuid
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
@@ -37,6 +36,8 @@ class MainFragment : Fragment() {
 
     private var isScanning = false
 
+    private val deviceName = "A&D_UA-651BLE"
+
     private lateinit var tonometerService: TonometerService
 
     private lateinit var mDevice: BluetoothDevice
@@ -46,6 +47,22 @@ class MainFragment : Fragment() {
     private val bluetoothAdapter by lazy {
         (requireActivity().getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager).adapter
     }
+
+
+//    private val btBroadcastReceiver = object : BroadcastReceiver() {
+//        override fun onReceive(context: Context?, intent: Intent?) {
+//
+//            when (intent?.action) {
+//                BluetoothAdapter.ACTION_STATE_CHANGED -> {
+//                    logging("bt state changed")
+//                }
+//                BluetoothDevice.ACTION_BOND_STATE_CHANGED -> {
+//                    logging("device connected")
+//                    logging("${intent.action}")
+//                }
+//            }
+//        }
+//    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -59,6 +76,12 @@ class MainFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         requestBtPermission()
         isBluetoothEnabled = bluetoothAdapter.isEnabled
+//        val broadcastFilter = IntentFilter(
+//          //  BluetoothAdapter.ACTION_STATE_CHANGED,
+//            BluetoothDevice.ACTION_BOND_STATE_CHANGED
+//        )
+//        //TODO add filters
+//       requireActivity().registerReceiver(btBroadcastReceiver, broadcastFilter)
 
         data.observe(viewLifecycleOwner) {
             logging("getting data from livedata ${it.high} ${it.low} ${it.pulse}")
@@ -89,7 +112,11 @@ class MainFragment : Fragment() {
         if (!bluetoothAdapter.isEnabled) return
         val scanFilter = ScanFilter.Builder().build()
         val scanFilters: MutableList<ScanFilter> = mutableListOf()
+        val filter = ScanFilter.Builder()
+            .setServiceUuid(ParcelUuid(ADGattUUID.BloodPressureService))
+            .build()
         scanFilters.add(scanFilter)
+        scanFilters.add(filter)
         val scanSettings =
             ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_BALANCED).build()
         bluetoothAdapter.bluetoothLeScanner.startScan(scanFilters, scanSettings, bleScanCallback)
@@ -107,8 +134,9 @@ class MainFragment : Fragment() {
             override fun onScanResult(callbackType: Int, result: ScanResult?) {
                 super.onScanResult(callbackType, result)
                 result?.device?.let {
-                    if (it.name?.contains("A&D") == true) {
+                    if (it.name?.contains(deviceName) == true) {
                         mDevice = it
+                        if (it.bondState == BluetoothDevice.BOND_NONE) it.createBond()
                         stopBleScan()
                         doBindBleReceivedService()
                         Toast.makeText(requireContext(), "Device found", Toast.LENGTH_SHORT).show()
@@ -197,6 +225,7 @@ class MainFragment : Fragment() {
     override fun onDestroy() {
         super.onDestroy()
         requireActivity().unbindService(mBleReceivedServiceConnection)
+        //  requireActivity().unregisterReceiver(btBroadcastReceiver)
     }
 
 
